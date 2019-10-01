@@ -46,6 +46,14 @@ println(testerr(parseInter, "(- 1 2)"))
 println(testerr(parseInter, "(* 1 2)"))
 println(testerr(parseInter, "(collatz -1)"))
 println(testerr(parseInter, "(/ 1 0)"))
+println(testerr(parseInter, "(+ (- 10) (mod 10 2))"))
+println(testerr(parseInter, "(+ (- (* (/ (mod (collatz (- -2)) 5) 2) (+ 1 1)) 11) 210)"))
+println(testerr(parseInter, "(collatz 1230)"))
+println(testerr(parseInter, "(/)"))
+println(testerr(parseInter, "()"))
+println(testerr(parseInter, "(/ 2)"))
+println(testerr(parseInter, "(/ 312 394 120)"))
+println(testerr(parseInter, "(/ sdf asf)"))
 """
     tests_info = """1. 1 point. parse (+ 1 2)
 2. 1 point. parse (- 1 2)
@@ -55,6 +63,14 @@ println(testerr(parseInter, "(/ 1 0)"))
 6. 1 point. calc (* 1 2)
 7. 1 point. calc (collatz -1)
 8. 1 point. calc (/ 1 0)
+9. 1 point. calc (+ (- 10) (mod 10 2))
+10. 1 point. calc (+ (- (* (/ (mod (collatz (- -2)) 5) 2) (+ 1 1)) 11) 210)
+11. 1 point. calc (collatz 1230)
+11. 1 point. calc (/)
+11. 1 point. calc ()
+11. 1 point. calc (/ 2)
+11. 1 point. calc (/ 312 394 120)
+11. 1 point. calc (/ sdf asf)
 """
     correctoutput = """Main.RudInt.BinopNode(+, Main.RudInt.NumNode(1), Main.RudInt.NumNode(2))
 Main.RudInt.BinopNode(-, Main.RudInt.NumNode(1), Main.RudInt.NumNode(2))
@@ -62,6 +78,14 @@ Error
 Error
 -1
 2
+Error
+Error
+-10
+200.0
+70
+Error
+Error
+Error
 Error
 Error
 """
