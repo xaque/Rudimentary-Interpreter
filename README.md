@@ -7,7 +7,7 @@ The grammer for the language is as follows:
  	 	|	 	(- <AE> <AE>)
  	 	|	 	(* <AE> <AE>)
  	 	|	 	(/ <AE> <AE>)
-        |       (mod <AE> <AE>)
-        |       (collatz <AE>)
-        |       (- <AE>)
+    |       (mod <AE> <AE>)
+    |       (collatz <AE>)
+    |       (- <AE>)
 ```
