@@ -17,5 +17,5 @@ The grammer for the language is as follows:
          |   (<AE> <AE>)
 
 # Only symbols not already in grammar
-<id>	::=		symbol
+<id>    ::=  symbol
 ```
