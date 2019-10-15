@@ -102,28 +102,28 @@ end
 # ==================================================
 #
 
-function divide( n1::Real, n2::Real)
+function divide(n1::Real, n2::Real)
     if n2 == 0
-        throw( LispError("Divide by zero error!") )
+        throw(LispError("Divide by zero error!"))
     end
     return n1 / n2
 end
 
-function collatz( n::Real )
+function collatz(n::Real)
     if n <= 0
-        throw( LispError("Collatz zero or less error!") )
+        throw(LispError("Collatz zero or less error!"))
     end
-    return collatz_helper( n, 0 )
+    return collatz_helper(n, 0)
 end
 
-function collatz_helper( n::Real, num_iters::Int )
+function collatz_helper(n::Real, num_iters::Int)
     if n == 1
         return num_iters
     end
-    if mod(n,2)==0
-        return collatz_helper( n/2, num_iters+1 )
+    if mod(n, 2) == 0
+        return collatz_helper(n / 2, num_iters + 1)
     else
-        return collatz_helper( 3*n+1, num_iters+1 )  
+        return collatz_helper(3 * n + 1, num_iters + 1)
     end
 end
 
@@ -217,45 +217,45 @@ end
 # ==================================================
 #
 
-function calc( ast::NumNode, env::Environment )
+function calc(ast::NumNode, env::Environment)
     return NumVal(ast.n)
 end
 
-function calc( ast::BinopNode, env::Environment )
-    return NumVal( ast.op( calc( ast.lhs, env ).n, calc( ast.rhs, env ).n ) )
+function calc(ast::BinopNode, env::Environment)
+    return NumVal(ast.op(calc(ast.lhs, env).n, calc(ast.rhs, env).n ))
 end
 
-function calc( ast::UnopNode, env::Environment )
-    return NumVal( ast.op( calc( ast.child, env ).n ) )
+function calc(ast::UnopNode, env::Environment)
+    return NumVal(ast.op(calc(ast.child, env).n))
 end
 
-function calc( ast::If0Node, env::Environment )
-    cond = calc( ast.cond, env )
+function calc(ast::If0Node, env::Environment)
+    cond = calc(ast.cond, env)
     if cond.n == 0
-        return calc( ast.zerobranch, env )
+        return calc(ast.zerobranch, env)
     else
-        return calc( ast.nzerobranch, env )
+        return calc(ast.nzerobranch, env)
     end
 end
 
-function calc( ast::WithNode, env::Environment )
+function calc(ast::WithNode, env::Environment)
     ext_env = env
-    for (k,v) in ast.vars
+    for (k, v) in ast.vars
         binding_val = calc(v, ext_env)
         ext_env = ExtendedEnv(k, binding_val, ext_env)
     end
-    return calc( ast.body, ext_env )
+    return calc(ast.body, ext_env)
 end
 
-function calc( ast::VarRefNode, env::EmptyEnv )
-    throw( LispError("Undefined variable " * string( ast.sym )) )
+function calc(ast::VarRefNode, env::EmptyEnv )
+    throw(LispError("Undefined variable " * string(ast.sym)))
 end
 
-function calc( ast::VarRefNode, env::ExtendedEnv )
+function calc(ast::VarRefNode, env::ExtendedEnv)
     if ast.sym == env.sym
         return env.val
     else
-        return calc( ast, env.parent )
+        return calc(ast, env.parent)
     end
 end
 
@@ -277,8 +277,8 @@ function calc(ast::FuncAppNode, env::Environment)
     return calc(closure_val.body, ext_env)
 end
 
-function calc( ast::AE )
-    return calc( ast, EmptyEnv() )
+function calc(ast::AE)
+    return calc(ast, EmptyEnv())
 end
 
 
@@ -286,10 +286,10 @@ end
 # ==================================================
 #
 
-function interp( cs::AbstractString )
-    lxd = Lexer.lex( cs )
-    ast = parse( lxd )
-    return calc( ast )
+function interp(cs::AbstractString)
+    lxd = Lexer.lex(cs)
+    ast = parse(lxd)
+    return calc(ast)
 end
 
 end #module
