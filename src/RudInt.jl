@@ -44,10 +44,9 @@ struct If0Node <: AE
     nzerobranch::AE
 end
 
-# <AE> ::= (with <id> <AE> <AE>)
+# <AE> ::= (with ((<id> <AE>)*) <AE>)
 struct WithNode <: AE
-    sym::Symbol
-    binding_expr::AE
+    vars::Dict{Symbol, AE}
     body::AE
 end
 
@@ -56,16 +55,16 @@ struct VarRefNode <: AE
     sym::Symbol
 end
 
-# <AE> ::= (lambda <id> <AE>)
+# <AE> ::= (lambda (<id>*) <AE>)
 struct FuncDefNode <: AE
-    formal::Symbol
+    formals::Array{Symbol}
     body::AE
 end
 
-# <AE> ::= (<AE> <AE>)
+# <AE> ::= (<AE> <AE>*)
 struct FuncAppNode <: AE
     fun_expr::AE
-    arg_expr::AE
+    arg_exprs::Array{AE}
 end
 
 
@@ -84,7 +83,7 @@ struct NumVal <: RetVal
 end
 
 struct ClosureVal <: RetVal
-    formal::Symbol
+    formals::Array{Symbol}
     body::AE
     env::Environment
 end
@@ -129,76 +128,88 @@ function collatz_helper( n::Real, num_iters::Int )
 end
 
 # Unary operations mapping from symbol to function
-unOps = Dict(:- => -, :collatz => collatz)
+unops = Dict(:- => -, :collatz => collatz)
 
 # Binary operations mapping from symbol to function
-binOps = Dict(:+ => +, :- => -, :* => *, :/ => divide, :mod => mod)
+binops = Dict(:+ => +, :- => -, :* => *, :/ => divide, :mod => mod)
 
 
-#                 Helper Functions
+#               Parse Helper Functions
 # ==================================================
 #
 
-function getOpFunction( op::Symbol, dict::Dict )
-    if !haskey( dict, op )
-        throw( LispError("Invalid expression at: $op") )
-    end
-    return dict[op]
+function parseUnop(expr::Array{Any})
+    return UnopNode(unops[expr[1]], parse(expr[2]))
 end
 
-function parse2( expr::Array{Any} )
-    if expr[1] isa Symbol && haskey( unOps, expr[1] )
-        return UnopNode( getOpFunction( expr[1], unOps ), parse( expr[2] ) )
-    end
-    return FuncAppNode( parse(expr[1]), parse(expr[2]) )
+function parseBinop(expr::Array{Any})
+    return BinopNode(binops[expr[1]], parse(expr[2]), parse(expr[3]))
 end
 
-function parse3( expr::Array{Any} )
-    if expr[1] == :lambda
-        return FuncDefNode( expr[2], parse(expr[3]) )
-    end
-    return BinopNode( getOpFunction( expr[1], binOps ), parse( expr[2] ), parse( expr[3] ) )
+function parseIf0(expr::Array{Any})
+    return If0Node(parse(expr[2]), parse(expr[3]), parse(expr[4]))
 end
 
-function parse4( expr::Array{Any} )
-    if expr[1] == :if0
-        return If0Node( parse(expr[2]), parse(expr[3]), parse(expr[4]) )
-    elseif expr[1] == :with
-        return WithNode( expr[2], parse(expr[3]), parse(expr[4]) )
+function parseWith(expr::Array{Any})
+    vars = Dict()
+    #TODO verify types
+    for statement in expr[2]
+        #TODO verify symbol not reserved
+        vars[statement[1]] = parse(statement[2])
     end
+    return WithNode(vars, parse(expr[3]))
 end
 
+function parseLambda(expr::Array{Any})
+    vars = []
+    for id in expr[2]
+        push!(vars, id)
+    end
+    return FuncDefNode(vars, parse(expr[3]))
+end
+
+function parseFuncApp(expr::Array{Any})
+    arg_exprs = []
+    for i in 2:length(expr)
+        push!(arg_exprs, parse(expr[i]))
+    end
+    return FuncAppNode(parse(expr[1]), arg_exprs)
+end
 
 #                      Parse
 # ==================================================
 #
 
-function parse( expr::Number )
-    return NumNode( expr )
+function parse(expr::Number)
+    return NumNode(expr)
 end
 
-function parse( expr::Symbol )
-    return VarRefNode( expr )
+function parse(expr::Symbol)
+    return VarRefNode(expr)
 end
 
-function parse( expr::Array{Any} )
-    len = length(expr)
-    if len == 0
-        throw( LispError("Empty expression!") )
-    elseif len == 2
-        return parse2(expr)     
-    elseif len == 3
-        return parse3(expr)
-    elseif len == 4
-        return parse4(expr)
+function parse(expr::Array{Any})
+    if length(expr) == 0
+        throw(LispError("Empty expression!"))
     end
     op = expr[1]
-    throw( LispError("Invalid expression at: $op") )
+    if haskey(unops, op)
+        return parseUnop(expr)
+    elseif haskey(binops, op)
+        return parseBinop(expr)
+    elseif op == :if0
+        return parseIf0(expr)
+    elseif op == :with
+        return parseWith(expr)
+    elseif op == :lambda
+        return parseLambda(expr)
+    end
+    return parseFuncApp(expr)
 end
 
-function parse( expr::Any )
+function parse(expr::Any)
     type = typeof(expr)
-    throw( LispError("Invalid type: $type") )
+    throw(LispError("Invalid type: $type"))
 end
 
 
@@ -228,13 +239,16 @@ function calc( ast::If0Node, env::Environment )
 end
 
 function calc( ast::WithNode, env::Environment )
-    binding_val = calc( ast.binding_expr, env )
-    ext_env = ExtendedEnv( ast.sym, binding_val, env )
+    ext_env = env
+    for (k,v) in ast.vars
+        binding_val = calc(v, ext_env)
+        ext_env = ExtendedEnv(k, binding_val, ext_env)
+    end
     return calc( ast.body, ext_env )
 end
 
 function calc( ast::VarRefNode, env::EmptyEnv )
-    throw( Error.LispError("Undefined variable " * string( ast.sym )) )
+    throw( LispError("Undefined variable " * string( ast.sym )) )
 end
 
 function calc( ast::VarRefNode, env::ExtendedEnv )
@@ -245,17 +259,22 @@ function calc( ast::VarRefNode, env::ExtendedEnv )
     end
 end
 
-function calc( ast::FuncDefNode, env::Environment )
-    return ClosureVal( ast.formal, ast.body , env )
+function calc(ast::FuncDefNode, env::Environment)
+    return ClosureVal(ast.formals, ast.body, env)
 end
 
-function calc( ast::FuncAppNode, env::Environment )
-    closure_val = calc( ast.fun_expr, env )
-    actual_parameter = calc( ast.arg_expr, env )
-    ext_env = ExtendedEnv( closure_val.formal,
-                           actual_parameter,
-                           closure_val.env )
-    return calc( closure_val.body, ext_env )
+function calc(ast::FuncAppNode, env::Environment)
+    #TODO expects first AE to be lambda and following not
+    actual_parameters = []
+    for expr in ast.arg_exprs
+        push!(actual_parameters, calc(expr, env))
+    end
+    closure_val = calc(ast.fun_expr, env)
+    ext_env = closure_val.env
+    for (i, formal) in enumerate(closure_val.formals)
+        ext_env = ExtendedEnv(formal, actual_parameters[i], ext_env)
+    end
+    return calc(closure_val.body, ext_env)
 end
 
 function calc( ast::AE )
