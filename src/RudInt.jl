@@ -218,15 +218,19 @@ end
 function parseWith(expr::Array{Any})
     arityCheck(expr, 3)
     typeCheck(expr[2], Array)
+    # Store (<id>, <AE>) pairs of variables and definitions
     vars = Dict()
     for statement in expr[2]
+        # Check that statement looks like (<id> <AE>)
         typeCheck(statement, Array)
         if length(statement) != 2
             syntaxError("")
         end
+        # Make sure symbol is not reserved
         symbolCheck(statement[1])
         vars[statement[1]] = parse(statement[2])
     end
+    # Verify there are no duplicate definitions, i.e. (with ((x 1)(y 1)(x 2)) <AE>)
     if length(vars) != length(expr[2])
         syntaxError("Duplicate variable definition in with expression")
     end
@@ -236,11 +240,13 @@ end
 function parseLambda(expr::Array{Any})
     arityCheck(expr, 3)
     typeCheck(expr[2], Array)
+    # Store list of expected arguments
     vars = []
     for id in expr[2]
         symbolCheck(id)
         push!(vars, id)
     end
+    # Verify there are no duplicate symbols used as argument variable names
     if length(vars) != length(Set(vars))
         syntaxError("Duplicate argument symbol in lambda expression")
     end
@@ -248,6 +254,7 @@ function parseLambda(expr::Array{Any})
 end
 
 function parseFuncApp(expr::Array{Any})
+    # Store list of <AE>s following the first
     arg_exprs = []
     for i in 2:length(expr)
         push!(arg_exprs, parse(expr[i]))
@@ -279,6 +286,7 @@ function parse(expr::Array{Any})
         return parseWith(expr)
     elseif op == :lambda
         return parseLambda(expr)
+    # :- symbol can be used for negative (unary) or minus (binary) operations
     elseif op == :-
         if length(expr) == 2
             return parseUnop(expr)
@@ -311,6 +319,7 @@ end
 function calc(ast::BinopNode, env::Environment)
     lhs = calc(ast.lhs, env)
     rhs = calc(ast.rhs, env)
+    # Verify binop is only run on NumVals
     typeCheck(lhs, NumVal)
     typeCheck(rhs, NumVal)
     return NumVal(ast.op(lhs.n, rhs.n))
@@ -318,12 +327,14 @@ end
 
 function calc(ast::UnopNode, env::Environment)
     child = calc(ast.child, env)
+    # Verify unop is only run on NumVal
     typeCheck(child, NumVal)
     return NumVal(ast.op(child.n))
 end
 
 function calc(ast::If0Node, env::Environment)
     cond = calc(ast.cond, env)
+    # Verify if condition is NumVal before accessing cond.n
     typeCheck(cond, NumVal)
     if cond.n == 0
         return calc(ast.zerobranch, env)
@@ -334,6 +345,7 @@ end
 
 function calc(ast::WithNode, env::Environment)
     ext_env = env
+    # Add variables from with expression to environment
     for (k, v) in ast.vars
         binding_val = calc(v, ext_env)
         typeCheck(binding_val, NumVal)
@@ -347,6 +359,7 @@ function calc(ast::VarRefNode, env::EmptyEnv )
 end
 
 function calc(ast::VarRefNode, env::ExtendedEnv)
+    # Recursively search environment for value
     if ast.sym == env.sym
         return env.val
     else
@@ -359,19 +372,23 @@ function calc(ast::FuncDefNode, env::Environment)
 end
 
 function calc(ast::FuncAppNode, env::Environment)
+    # Store list of parameters for closure to absorb
     actual_parameters = []
     for expr in ast.arg_exprs
         push!(actual_parameters, calc(expr, env))
     end
     closure_val = calc(ast.fun_expr, env)
     typeCheck(closure_val, ClosureVal)
+    # Check that parameters match expected for given closure
     ext_env = closure_val.env
     if length(actual_parameters) != length(closure_val.formals)
         arityError(:lambda, length(actual_parameters), length(closure_val.formals))
     end
+    # Prepare to evaluate closure by adding arguments from actual_parameters into environment
     for (i, formal) in enumerate(closure_val.formals)
         ext_env = ExtendedEnv(formal, actual_parameters[i], ext_env)
     end
+    # Evaluate closure with new environment
     return calc(closure_val.body, ext_env)
 end
 
