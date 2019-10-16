@@ -91,6 +91,7 @@ end
 struct EmptyEnv <: Environment
 end
 
+# Linked list of KV pairs
 struct ExtendedEnv <: Environment
     sym::Symbol
     val::RetVal
@@ -133,37 +134,104 @@ unops = Dict(:- => -, :collatz => collatz)
 # Binary operations mapping from symbol to function
 binops = Dict(:+ => +, :- => -, :* => *, :/ => divide, :mod => mod)
 
+# A set of symbols which should not be used as <id>
+reservedSymbols = Set([:if0, :with, :lambda])
+reservedSymbols = union(reservedSymbols, keys(unops))
+reservedSymbols = union(reservedSymbols, keys(binops))
+
+
+#               Error Helper Functions
+# ==================================================
+#
+
+function typeError(actualType::Type, expectedType::Type)
+    throw(LispError("Type Error: expected type $expectedType, but got $actualType"))
+end
+
+function syntaxError(message::String)
+    throw(LispError("Syntax Error: $message"))
+end
+
+function arityError(op::Symbol, actual::Integer, expected::Integer)
+    throw(LispError("Arity Error: Operation $op expected $expected arguments, but got $actual."))
+end
+
+function arityError(op::Symbol, actual::Integer, minExpected::Real, maxExpected::Real)
+    throw(LispError("Arity Error: Operation $op expected $minExpected-$maxExpected arguments, but got $actual."))
+end
+
+function typeCheck(obj::Any, type::Type)
+    if !(obj isa type)
+        typeError(typeof(obj), type)
+    end
+end
+
+function arityCheck(expr::Array{Any}, expectedLength::Integer)
+    if length(expr) != expectedLength
+        arityError(expr[1], length(expr) - 1, expectedLength - 1)
+    end
+end
+
+function arityCheck(expr::Array{Any}, minExpLength::Real, maxExpLength::Real)
+    if length(expr) < minExpLength || length(expr) > maxExpLength
+        arityError(expr[1], length(expr) - 1, minExpLength - 1, maxExpLength - 1)
+    end
+end
+
+function symbolCheck(sym::Symbol)
+    if sym in reservedSymbols
+        syntaxError("$sym is a reserved symbol")
+    end
+end
+
+function symbolCheck(sym::Any)
+    typeError(typeof(sym), Symbol)
+end
+
 
 #               Parse Helper Functions
 # ==================================================
 #
 
 function parseUnop(expr::Array{Any})
+    arityCheck(expr, 2)
     return UnopNode(unops[expr[1]], parse(expr[2]))
 end
 
 function parseBinop(expr::Array{Any})
+    arityCheck(expr, 3)
     return BinopNode(binops[expr[1]], parse(expr[2]), parse(expr[3]))
 end
 
 function parseIf0(expr::Array{Any})
+    arityCheck(expr, 4)
     return If0Node(parse(expr[2]), parse(expr[3]), parse(expr[4]))
 end
 
 function parseWith(expr::Array{Any})
+    arityCheck(expr, 3)
+    typeCheck(expr[2], Array)
     vars = Dict()
-    #TODO verify types
     for statement in expr[2]
-        #TODO verify symbol not reserved
+        symbolCheck(statement[1])
         vars[statement[1]] = parse(statement[2])
+    end
+    if length(vars) != length(expr[2])
+        syntaxError("Duplicate variable definition in with expression")
     end
     return WithNode(vars, parse(expr[3]))
 end
 
 function parseLambda(expr::Array{Any})
+    arityCheck(expr, 3)
+    typeCheck(expr[2], Array)
     vars = []
     for id in expr[2]
+        symbolCheck(id)
         push!(vars, id)
+    end
+    if length(vars) != length(Set(vars))
+        syntaxError("Duplicate argument symbol in lambda expression")
     end
     return FuncDefNode(vars, parse(expr[3]))
 end
@@ -185,26 +253,34 @@ function parse(expr::Number)
 end
 
 function parse(expr::Symbol)
+    symbolCheck(expr)
     return VarRefNode(expr)
 end
 
 function parse(expr::Array{Any})
     if length(expr) == 0
-        throw(LispError("Empty expression!"))
+        syntaxError("empty expression!")
     end
     op = expr[1]
-    if haskey(unops, op)
-        return parseUnop(expr)
-    elseif haskey(binops, op)
-        return parseBinop(expr)
-    elseif op == :if0
+    if op == :if0
         return parseIf0(expr)
     elseif op == :with
         return parseWith(expr)
     elseif op == :lambda
         return parseLambda(expr)
+    elseif op == :-
+        if length(expr) == 2
+            return parseUnop(expr)
+        else
+            return parseBinop(expr)
+        end
+    elseif haskey(unops, op)
+        return parseUnop(expr)
+    elseif haskey(binops, op)
+        return parseBinop(expr)
+    else
+        return parseFuncApp(expr)
     end
-    return parseFuncApp(expr)
 end
 
 function parse(expr::Any)
@@ -222,15 +298,22 @@ function calc(ast::NumNode, env::Environment)
 end
 
 function calc(ast::BinopNode, env::Environment)
-    return NumVal(ast.op(calc(ast.lhs, env).n, calc(ast.rhs, env).n ))
+    lhs = calc(ast.lhs, env)
+    rhs = calc(ast.rhs, env)
+    typeCheck(lhs, NumVal)
+    typeCheck(rhs, NumVal)
+    return NumVal(ast.op(lhs.n, rhs.n))
 end
 
 function calc(ast::UnopNode, env::Environment)
-    return NumVal(ast.op(calc(ast.child, env).n))
+    child = calc(ast.child, env)
+    typeCheck(child, NumVal)
+    return NumVal(ast.op(child.n))
 end
 
 function calc(ast::If0Node, env::Environment)
     cond = calc(ast.cond, env)
+    typeCheck(cond, NumVal)
     if cond.n == 0
         return calc(ast.zerobranch, env)
     else
@@ -242,6 +325,7 @@ function calc(ast::WithNode, env::Environment)
     ext_env = env
     for (k, v) in ast.vars
         binding_val = calc(v, ext_env)
+        typeCheck(binding_val, NumVal)
         ext_env = ExtendedEnv(k, binding_val, ext_env)
     end
     return calc(ast.body, ext_env)
@@ -264,12 +348,13 @@ function calc(ast::FuncDefNode, env::Environment)
 end
 
 function calc(ast::FuncAppNode, env::Environment)
-    #TODO expects first AE to be lambda and following not
+    #TODO need to verify actual_parameters are NumVal? Or does that happen deeper in the recursion?
     actual_parameters = []
     for expr in ast.arg_exprs
         push!(actual_parameters, calc(expr, env))
     end
     closure_val = calc(ast.fun_expr, env)
+    typeCheck(closure_val, ClosureVal)
     ext_env = closure_val.env
     for (i, formal) in enumerate(closure_val.formals)
         ext_env = ExtendedEnv(formal, actual_parameters[i], ext_env)
@@ -287,6 +372,9 @@ end
 #
 
 function interp(cs::AbstractString)
+    if length(cs) == 0
+        throw(LispError("Empty program!"))
+    end
     lxd = Lexer.lex(cs)
     ast = parse(lxd)
     return calc(ast)
