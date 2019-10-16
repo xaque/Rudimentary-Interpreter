@@ -110,6 +110,13 @@ function divide(n1::Real, n2::Real)
     return n1 / n2
 end
 
+function safeMod(n1::Real, n2::Real)
+    if n2 == 0
+        throw(LispError("Divide by zero error!"))
+    end
+    return mod(n1, n2)
+end
+
 function collatz(n::Real)
     if n <= 0
         throw(LispError("Collatz zero or less error!"))
@@ -132,7 +139,7 @@ end
 unops = Dict(:- => -, :collatz => collatz)
 
 # Binary operations mapping from symbol to function
-binops = Dict(:+ => +, :- => -, :* => *, :/ => divide, :mod => mod)
+binops = Dict(:+ => +, :- => -, :* => *, :/ => divide, :mod => safeMod)
 
 # A set of symbols which should not be used as <id>
 reservedSymbols = Set([:if0, :with, :lambda])
@@ -213,6 +220,10 @@ function parseWith(expr::Array{Any})
     typeCheck(expr[2], Array)
     vars = Dict()
     for statement in expr[2]
+        typeCheck(statement, Array)
+        if length(statement) != 2
+            syntaxError("")
+        end
         symbolCheck(statement[1])
         vars[statement[1]] = parse(statement[2])
     end
@@ -348,7 +359,6 @@ function calc(ast::FuncDefNode, env::Environment)
 end
 
 function calc(ast::FuncAppNode, env::Environment)
-    #TODO need to verify actual_parameters are NumVal? Or does that happen deeper in the recursion?
     actual_parameters = []
     for expr in ast.arg_exprs
         push!(actual_parameters, calc(expr, env))
@@ -356,6 +366,9 @@ function calc(ast::FuncAppNode, env::Environment)
     closure_val = calc(ast.fun_expr, env)
     typeCheck(closure_val, ClosureVal)
     ext_env = closure_val.env
+    if length(actual_parameters) != length(closure_val.formals)
+        arityError(:lambda, length(actual_parameters), length(closure_val.formals))
+    end
     for (i, formal) in enumerate(closure_val.formals)
         ext_env = ExtendedEnv(formal, actual_parameters[i], ext_env)
     end
