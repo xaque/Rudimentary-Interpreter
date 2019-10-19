@@ -260,7 +260,7 @@ function parseWith(expr::Array{Any})
     end
     # Verify there are no duplicate definitions, i.e. (with ((x 1)(y 1)(x 2)) <AE>)
     if length(vars) != length(expr[2])
-        syntaxError("Duplicate variable definition in with expression")
+        syntaxError("duplicate variable definition in with expression")
     end
     return WithNode(vars, parse(expr[3]))
 end
@@ -276,7 +276,7 @@ function parseLambda(expr::Array{Any})
     end
     # Verify there are no duplicate symbols used as argument variable names
     if length(vars) != length(Set(vars))
-        syntaxError("Duplicate argument symbol in lambda expression")
+        syntaxError("duplicate argument symbol in lambda expression")
     end
     return FuncDefNode(vars, parse(expr[3]))
 end
@@ -336,7 +336,7 @@ end
 
 function parse(expr::Any)
     type = typeof(expr)
-    throw(LispError("Invalid type: $type"))
+    syntaxError("unknown expression of type $type")
 end
 
 
@@ -397,17 +397,17 @@ function analyze(ast::AndNode)
     return if0Node
 end
 
-# function analyze(ast::WithNode)
-#     # transform from a with expression to application of a function
-#     fdn = FuncDefNode(ast.sym, analyze(ast.body))
-#     return FuncAppNode(fdn, analyze(ast.binding_expr))
-# end
-
+# (with ((<id> <arg_AE>)*) <body_AE>) ::= ((lambda (<id>*) <body_AE>) <arg_AE>*)
 function analyze(ast::WithNode)
+    # Transform a with expression to a lambda expression
+    formals = []
+    arg_exprs = []
     for (k,v) in ast.vars
-        ast.vars[k] = analyze(v)
+        push!(formals, k)
+        push!(arg_exprs, analyze(v))
     end
-    return WithNode(ast.vars, analyze(ast.body))
+    fdn = FuncDefNode(formals, analyze(ast.body))
+    return FuncAppNode(fdn, arg_exprs)
 end
 
 function analyze(ast::FuncDefNode)
@@ -444,16 +444,6 @@ function calc(ast::BinopNode, env::Environment)
     return NumVal(ast.op(lhs.n, rhs.n))
 end
 
-# function calc(ast::PlusNode, env::Environment)
-#     sum = 0
-#     for operand in ast.operands
-#         val = calc(operand)
-#         typeCheck(val, NumVal)
-#         sum += val.n
-#     end
-#     return NumVal(sum)
-# end
-
 function calc(ast::UnopNode, env::Environment)
     child = calc(ast.child, env)
     # Verify unop is only run on NumVal
@@ -472,19 +462,8 @@ function calc(ast::If0Node, env::Environment)
     end
 end
 
-function calc(ast::WithNode, env::Environment)
-    ext_env = env
-    # Add variables from with expression to environment
-    for (k, v) in ast.vars
-        binding_val = calc(v, ext_env)
-        typeCheck(binding_val, NumVal)
-        ext_env = ExtendedEnv(k, binding_val, ext_env)
-    end
-    return calc(ast.body, ext_env)
-end
-
 function calc(ast::VarRefNode, env::EmptyEnv )
-    throw(LispError("Undefined variable " * string(ast.sym)))
+    syntaxError("undefined variable " * string(ast.sym))
 end
 
 function calc(ast::VarRefNode, env::ExtendedEnv)
@@ -527,7 +506,7 @@ end
 
 function calc(ast::AE, env::Environment)
     type = typeof(ast)
-    syntaxError("Not able to calc $type")
+    syntaxError("not able to calc $type")
 end
 
 #                      Interpret

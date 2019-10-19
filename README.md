@@ -3,7 +3,7 @@
 The grammer for the language is as follows:
 ```
 <AE>    ::=  number
-         |   (+ <AE> <AE>)
+         |   (+ <AE> <AE> <AE>*)
          |   (- <AE> <AE>)
          |   (* <AE> <AE>)
          |   (/ <AE> <AE>)
@@ -14,6 +14,7 @@ The grammer for the language is as follows:
          |   (if0 <AE> <AE> <AE>)
          |   with ((<id> <AE>)*) <AE>)
          |   (lambda (<id>*) <AE>)
+         |   (and <AE> <AE> <AE>*)
          |   (<AE> <AE>*)
 
 # Only symbols not already in grammar
