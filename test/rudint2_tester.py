@@ -131,6 +131,25 @@ if __name__ == "__main__":
 119. 1 point. Error
 120. 1 point. Main.RudInt.ClosureVal(Symbol[], Main.RudInt.NumNode(53), Main.RudInt.EmptyEnv())
 121. 1 point. Main.RudInt.NumVal(12)
+122. 1 point. Main.RudInt.NumNode(66)
+123. 1 point. Main.RudInt.NumNode(-4413)
+124. 1 point. Main.RudInt.NumNode(100)
+125. 1 point. Main.RudInt.NumNode(101)
+126. 1 point. Main.RudInt.NumNode(66)
+127. 1 point. Main.RudInt.NumNode(2408.0)
+128. 1 point. Main.RudInt.FuncAppNode(Main.RudInt.FuncDefNode(Symbol[:x, :y], Main.RudInt.BinopNode(+, Main.RudInt.NumNode(1), Main.RudInt.BinopNode(+, Main.RudInt.VarRefNode(:x), Main.RudInt.VarRefNode(:y)))), Main.RudInt.AE[Main.RudInt.NumNode(9), Main.RudInt.NumNode(0)])
+129. 1 point. Main.RudInt.NumVal(1)
+130. 1 point. Main.RudInt.NumVal(0)
+131. 1 point. Main.RudInt.NumVal(0)
+132. 1 point. Main.RudInt.NumVal(0)
+133. 1 point. Main.RudInt.NumVal(0)
+134. 1 point. Main.RudInt.NumVal(1)
+135. 1 point. Main.RudInt.NumVal(0)
+136. 1 point. Main.RudInt.NumNode(0)
+137. 1 point. Main.RudInt.If0Node(Main.RudInt.FuncAppNode(Main.RudInt.FuncDefNode(Symbol[:x], Main.RudInt.VarRefNode(:x)), Main.RudInt.AE[Main.RudInt.NumNode(1)]), Main.RudInt.NumNode(0), Main.RudInt.NumNode(1))
+138. 1 point. Main.RudInt.NumNode(6)
+139. 1 point. Main.RudInt.FuncAppNode(Main.RudInt.FuncDefNode(Symbol[], Main.RudInt.NumNode(1)), Main.RudInt.AE[])
+140. 1 point. Main.RudInt.FuncAppNode(Main.RudInt.FuncDefNode(Symbol[:y, :x], Main.RudInt.BinopNode(+, Main.RudInt.NumNode(7), Main.RudInt.BinopNode(+, Main.RudInt.VarRefNode(:x), Main.RudInt.VarRefNode(:y)))), Main.RudInt.AE[Main.RudInt.NumNode(2), Main.RudInt.NumNode(1)])
 """
     correctoutput = """1. Pass
 2. Error
@@ -253,6 +272,25 @@ if __name__ == "__main__":
 119. Error
 120. Main.RudInt.ClosureVal(Symbol[], Main.RudInt.NumNode(53), Main.RudInt.EmptyEnv())
 121. Main.RudInt.NumVal(12)
+122. Main.RudInt.NumNode(66)
+123. Main.RudInt.NumNode(-4413)
+124. Main.RudInt.NumNode(100)
+125. Main.RudInt.NumNode(101)
+126. Main.RudInt.NumNode(66)
+127. Main.RudInt.NumNode(2408.0)
+128. Main.RudInt.FuncAppNode(Main.RudInt.FuncDefNode(Symbol[:x, :y], Main.RudInt.BinopNode(+, Main.RudInt.NumNode(1), Main.RudInt.BinopNode(+, Main.RudInt.VarRefNode(:x), Main.RudInt.VarRefNode(:y)))), Main.RudInt.AE[Main.RudInt.NumNode(9), Main.RudInt.NumNode(0)])
+129. Main.RudInt.NumVal(1)
+130. Main.RudInt.NumVal(0)
+131. Main.RudInt.NumVal(0)
+132. Main.RudInt.NumVal(0)
+133. Main.RudInt.NumVal(0)
+134. Main.RudInt.NumVal(1)
+135. Main.RudInt.NumVal(0)
+136. Main.RudInt.NumNode(0)
+137. Main.RudInt.If0Node(Main.RudInt.FuncAppNode(Main.RudInt.FuncDefNode(Symbol[:x], Main.RudInt.VarRefNode(:x)), Main.RudInt.AE[Main.RudInt.NumNode(1)]), Main.RudInt.NumNode(0), Main.RudInt.NumNode(1))
+138. Main.RudInt.NumNode(6)
+139. Main.RudInt.FuncAppNode(Main.RudInt.FuncDefNode(Symbol[], Main.RudInt.NumNode(1)), Main.RudInt.AE[])
+140. Main.RudInt.FuncAppNode(Main.RudInt.FuncDefNode(Symbol[:y, :x], Main.RudInt.BinopNode(+, Main.RudInt.NumNode(7), Main.RudInt.BinopNode(+, Main.RudInt.VarRefNode(:x), Main.RudInt.VarRefNode(:y)))), Main.RudInt.AE[Main.RudInt.NumNode(2), Main.RudInt.NumNode(1)])
 """
     grade = 0
     total_possible = 0
