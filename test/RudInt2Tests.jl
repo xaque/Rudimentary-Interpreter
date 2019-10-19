@@ -17,7 +17,7 @@ function parseT(str)
 end
 
 function interpretT(str)
-  RudInt.calc(parseT(str))
+  RudInt.interp(str)
 end
 
 function removeNL(str)
@@ -72,8 +72,8 @@ testErr(interpretT, "(+ 0 9223372036854775808)", tnum())
 testErr(interpretT, "(+)", tnum())
 testErr(interpretT, "+ 4 3", tnum())
 testErr(interpretT, "(+ 99)", tnum())
-testErr(interpretT, "(+ 1 2 3)", tnum())
-testErr(interpretT, "(+ 1 2 3 4 5 6 7 8 9 10 11)", tnum())
+testAns(interpretT, "(+ 1 2 3)", tnum())
+testAns(interpretT, "(+ 1 2 3 4 5 6 7 8 9 10 11)", tnum())
 testErr(interpretT, "(+ x q)", tnum())
 testErr(interpretT, "(+ 9 q)", tnum())
 testErr(interpretT, "(+ 9 with)", tnum())

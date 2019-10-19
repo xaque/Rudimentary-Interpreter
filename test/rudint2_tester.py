@@ -149,8 +149,8 @@ if __name__ == "__main__":
 15. Error
 16. Error
 17. Error
-18. Error
-19. Error
+18. Main.RudInt.NumVal(6)
+19. Main.RudInt.NumVal(66)
 20. Error
 21. Error
 22. Error

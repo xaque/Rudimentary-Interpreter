@@ -1,5 +1,5 @@
 #
-# Rudimentary Interpreter 2
+# Rudimentary Interpreter 3
 #
 
 module RudInt
@@ -8,7 +8,7 @@ push!(LOAD_PATH, pwd())
 
 using Error
 using Lexer
-export parse, calc, interp
+export parse, calc, interp, analyze, NumVal, ClosureVal
 
 
 #                 Grammar Definition
@@ -35,6 +35,16 @@ struct BinopNode <: AE
     op::Function
     lhs::AE
     rhs::AE
+end
+
+# <AE> ::= (+ <AE> <AE> <AE>*)
+struct PlusNode <: AE
+    operands::Array{AE}
+end
+
+# <AE> ::= (and <AE> <AE> <AE>*)
+struct AndNode <: AE
+    operands::Array{AE}
 end
 
 # <AE> ::= (if0 <AE> <AE> <AE>)
@@ -139,10 +149,10 @@ end
 unops = Dict(:- => -, :collatz => collatz)
 
 # Binary operations mapping from symbol to function
-binops = Dict(:+ => +, :- => -, :* => *, :/ => divide, :mod => safeMod)
+binops = Dict(:- => -, :* => *, :/ => divide, :mod => safeMod)
 
 # A set of symbols which should not be used as <id>
-reservedSymbols = Set([:if0, :with, :lambda])
+reservedSymbols = Set([:if0, :with, :lambda, :+, :and])
 reservedSymbols = union(reservedSymbols, keys(unops))
 reservedSymbols = union(reservedSymbols, keys(binops))
 
@@ -208,6 +218,24 @@ end
 function parseBinop(expr::Array{Any})
     arityCheck(expr, 3)
     return BinopNode(binops[expr[1]], parse(expr[2]), parse(expr[3]))
+end
+
+function parsePlus(expr::Array{Any})
+    arityCheck(expr, 3, Inf)
+    operands = []
+    for operand in expr[2:end]
+        push!(operands, parse(operand))
+    end
+    return PlusNode(operands)
+end
+
+function parseAnd(expr::Array{Any})
+    arityCheck(expr, 3, Inf)
+    operands = []
+    for operand in expr[2:end]
+        push!(operands, parse(operand))
+    end
+    return AndNode(operands)
 end
 
 function parseIf0(expr::Array{Any})
@@ -286,6 +314,10 @@ function parse(expr::Array{Any})
         return parseWith(expr)
     elseif op == :lambda
         return parseLambda(expr)
+    elseif op == :and
+        return parseAnd(expr)
+    elseif op == :+
+        return parsePlus(expr)
     # :- symbol can be used for negative (unary) or minus (binary) operations
     elseif op == :-
         if length(expr) == 2
@@ -308,6 +340,93 @@ function parse(expr::Any)
 end
 
 
+#                      Analyze
+# ==================================================
+#
+
+function analyze(ast::BinopNode)
+    alhs = analyze(ast.lhs)
+    arhs = analyze(ast.rhs)
+
+    # if typeof(alhs) == NumNode && typeof(arhs) == NumNode
+    #     return NumNode(ast.op(alhs.n, arhs.n))
+    # end
+
+    return BinopNode(ast.op, alhs, arhs)
+end
+
+function analyze(ast::UnopNode)
+    child = analyze(ast.child)
+    
+    # if typeof(child) == NumNode
+    #     return NumNode(ast.op(child))
+    # end
+
+    return UnopNode(ast.op, child)
+end
+
+function analyze(ast::If0Node)
+    acond = analyze(ast.cond)
+
+    # if typeof(acond) == NumNode
+    #     if acond.n == 0
+    #         return analyze(ast.zerobranch)
+    #     else
+    #         return analyze(ast.nzerobranch)
+    #     end
+    # end
+
+    azb = analyze(ast.zerobranch)
+    anzb = analyze(ast.nzerobranch)
+    return If0Node(acond, azb, anzb)
+end
+
+function analyze(ast::PlusNode)
+    binopNode = BinopNode(+, analyze(ast.operands[1]), analyze(ast.operands[2]))
+    for operand in ast.operands[3:end]
+        binopNode = BinopNode(+, analyze(operand), binopNode)
+    end
+    return binopNode
+end
+
+function analyze(ast::AndNode)
+    if0Node = If0Node(analyze(ast.operands[1]), NumNode(0), NumNode(1))
+    for operand in ast.operands[2:end]
+        if0Node = If0Node(analyze(operand), NumNode(0), if0Node)
+    end
+    return if0Node
+end
+
+# function analyze(ast::WithNode)
+#     # transform from a with expression to application of a function
+#     fdn = FuncDefNode(ast.sym, analyze(ast.body))
+#     return FuncAppNode(fdn, analyze(ast.binding_expr))
+# end
+
+function analyze(ast::WithNode)
+    for (k,v) in ast.vars
+        ast.vars[k] = analyze(v)
+    end
+    return WithNode(ast.vars, analyze(ast.body))
+end
+
+function analyze(ast::FuncDefNode)
+    return FuncDefNode(ast.formals, analyze(ast.body))
+end
+
+function analyze(ast::FuncAppNode)
+    arg_exprs = []
+    for arg in ast.arg_exprs
+        push!(arg_exprs, analyze(arg))
+    end
+    return FuncAppNode(analyze(ast.fun_expr), arg_exprs)
+end
+
+function analyze(ast::AE)
+    return ast
+end
+
+
 #                 Calculate/Evaluate
 # ==================================================
 #
@@ -324,6 +443,16 @@ function calc(ast::BinopNode, env::Environment)
     typeCheck(rhs, NumVal)
     return NumVal(ast.op(lhs.n, rhs.n))
 end
+
+# function calc(ast::PlusNode, env::Environment)
+#     sum = 0
+#     for operand in ast.operands
+#         val = calc(operand)
+#         typeCheck(val, NumVal)
+#         sum += val.n
+#     end
+#     return NumVal(sum)
+# end
 
 function calc(ast::UnopNode, env::Environment)
     child = calc(ast.child, env)
@@ -396,6 +525,10 @@ function calc(ast::AE)
     return calc(ast, EmptyEnv())
 end
 
+function calc(ast::AE, env::Environment)
+    type = typeof(ast)
+    syntaxError("Not able to calc $type")
+end
 
 #                      Interpret
 # ==================================================
@@ -407,7 +540,8 @@ function interp(cs::AbstractString)
     end
     lxd = Lexer.lex(cs)
     ast = parse(lxd)
-    return calc(ast)
+    revised_ast = analyze(ast)
+    return calc(revised_ast, EmptyEnv())
 end
 
 end #module
