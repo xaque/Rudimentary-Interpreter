@@ -348,9 +348,9 @@ function analyze(ast::BinopNode)
     alhs = analyze(ast.lhs)
     arhs = analyze(ast.rhs)
 
-    # if typeof(alhs) == NumNode && typeof(arhs) == NumNode
-    #     return NumNode(ast.op(alhs.n, arhs.n))
-    # end
+    if typeof(alhs) == NumNode && typeof(arhs) == NumNode
+        return NumNode(ast.op(alhs.n, arhs.n))
+    end
 
     return BinopNode(ast.op, alhs, arhs)
 end
@@ -358,9 +358,9 @@ end
 function analyze(ast::UnopNode)
     child = analyze(ast.child)
     
-    # if typeof(child) == NumNode
-    #     return NumNode(ast.op(child))
-    # end
+    if typeof(child) == NumNode
+        return NumNode(ast.op(child.n))
+    end
 
     return UnopNode(ast.op, child)
 end
@@ -368,13 +368,13 @@ end
 function analyze(ast::If0Node)
     acond = analyze(ast.cond)
 
-    # if typeof(acond) == NumNode
-    #     if acond.n == 0
-    #         return analyze(ast.zerobranch)
-    #     else
-    #         return analyze(ast.nzerobranch)
-    #     end
-    # end
+    if typeof(acond) == NumNode
+        if acond.n == 0
+            return analyze(ast.zerobranch)
+        else
+            return analyze(ast.nzerobranch)
+        end
+    end
 
     azb = analyze(ast.zerobranch)
     anzb = analyze(ast.nzerobranch)
@@ -382,19 +382,19 @@ function analyze(ast::If0Node)
 end
 
 function analyze(ast::PlusNode)
-    binopNode = BinopNode(+, analyze(ast.operands[1]), analyze(ast.operands[2]))
+    binopNode = BinopNode(+, ast.operands[1], ast.operands[2])
     for operand in ast.operands[3:end]
-        binopNode = BinopNode(+, analyze(operand), binopNode)
+        binopNode = BinopNode(+, operand, binopNode)
     end
-    return binopNode
+    return analyze(binopNode)
 end
 
 function analyze(ast::AndNode)
-    if0Node = If0Node(analyze(ast.operands[1]), NumNode(0), NumNode(1))
+    if0Node = If0Node(ast.operands[1], NumNode(0), NumNode(1))
     for operand in ast.operands[2:end]
-        if0Node = If0Node(analyze(operand), NumNode(0), if0Node)
+        if0Node = If0Node(operand, NumNode(0), if0Node)
     end
-    return if0Node
+    return analyze(if0Node)
 end
 
 # (with ((<id> <arg_AE>)*) <body_AE>) ::= ((lambda (<id>*) <body_AE>) <arg_AE>*)
